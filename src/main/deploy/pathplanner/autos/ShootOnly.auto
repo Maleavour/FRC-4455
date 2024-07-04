@@ -2,10 +2,10 @@
   "version": 1.0,
   "startingPose": {
     "position": {
-      "x": 0.7401886415755699,
-      "y": 4.19247948338978
+      "x": 2,
+      "y": 2
     },
-    "rotation": 118.23744553816728
+    "rotation": 0
   },
   "command": {
     "type": "sequential",
@@ -14,18 +14,12 @@
         {
           "type": "named",
           "data": {
-            "name": "Shoot"
-          }
-        },
-        {
-          "type": "path",
-          "data": {
-            "pathName": "DSR"
+            "name": "ShootOnly"
           }
         }
       ]
     }
   },
-  "folder": "BlueAlliance",
+  "folder": null,
   "choreoAuto": true
 }

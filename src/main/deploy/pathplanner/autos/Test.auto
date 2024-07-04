@@ -2,19 +2,19 @@
   "version": 1.0,
   "startingPose": {
     "position": {
-      "x": 1.429592490196228,
-      "y": 5.528106212615967
+      "x": 1.36086297850199,
+      "y": 5.539225686154654
     },
-    "rotation": -5.722879116104448e-26
+    "rotation": 5.592218238712801e-24
   },
   "command": {
     "type": "sequential",
     "data": {
       "commands": [
         {
-          "type": "path",
+          "type": "named",
           "data": {
-            "pathName": "Test"
+            "name": "TestAuto"
           }
         }
       ]

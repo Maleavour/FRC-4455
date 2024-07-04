@@ -8,23 +8,29 @@ import edu.wpi.first.cscore.CvSource;
 import edu.wpi.first.cscore.UsbCamera;
 import edu.wpi.first.cscore.MjpegServer;
 import edu.wpi.first.cameraserver.CameraServer;
-
+import edu.wpi.first.wpilibj.DigitalInput;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfByte;
 import org.opencv.imgcodecs.Imgcodecs;
-
+import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.GenericHID.RumbleType;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.filter.SlewRateLimiter;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.util.PixelFormat;
 import edu.wpi.first.wpilibj.Filesystem;
 import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj.util.Color;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.InstantCommand;
+import edu.wpi.first.wpilibj2.command.PrintCommand;
+import edu.wpi.first.wpilibj2.command.RunCommand;
+import edu.wpi.first.wpilibj2.command.SequentialCommandGroup;
 import edu.wpi.first.wpilibj2.command.WaitCommand;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
@@ -33,8 +39,11 @@ import frc.robot.commands.ConstantSpeedDrive;
 import frc.robot.commands.swervedrive.drivebase.AbsoluteDriveAdv;
 import frc.robot.subsystems.swervedrive.SwerveSubsystem;
 import java.io.File;
-import frc.robot.Robot;
+import java.util.function.BooleanSupplier;
 
+import frc.robot.Robot;
+import edu.wpi.first.wpilibj.AddressableLED;
+import edu.wpi.first.wpilibj.AddressableLEDBuffer;
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
 import com.pathplanner.lib.path.PathPlannerPath;
@@ -43,7 +52,6 @@ import com.revrobotics.CANSparkBase;
 import com.revrobotics.CANSparkBase.IdleMode;
 import com.revrobotics.CANSparkMax;
 import com.revrobotics.CANSparkLowLevel.MotorType;
-
 /**
  * This class is where the bulk of the robot should be declared. Since Command-based is a "declarative" paradigm, very
  * little robot logic should actually be handled in the {@link Robot} periodic methods (other than the scheduler calls).
@@ -51,46 +59,62 @@ import com.revrobotics.CANSparkLowLevel.MotorType;
  */
 public class RobotContainer
 {
+  final double AutoShooterPower = 0.9;
   
   Robot robot;
   // Initialize your camera
     public void initializeCamera() {
       UsbCamera camera = CameraServer.startAutomaticCapture();
-      camera.setResolution(640, 480);
+      camera.setPixelFormat(PixelFormat.kMJPEG);
+      camera.setFPS(30);
+      camera.setResolution(160, 120);
     }
+
+  private DigitalInput Beam;
   private final SlewRateLimiter limitY = new SlewRateLimiter(4.0);
-    private final SlewRateLimiter limitX = new SlewRateLimiter(4.0);
-      private final SlewRateLimiter limitRot = new SlewRateLimiter(6.0);
+  private final SlewRateLimiter limitX = new SlewRateLimiter(4.0);
+  private final SlewRateLimiter limitRot = new SlewRateLimiter(6.0);
   
       // Load a Choreo trajectory as a PathPlannerPath
-PathPlannerPath DSRTest = PathPlannerPath.fromChoreoTrajectory("DSR");
-PathPlannerPath DSFTest = PathPlannerPath.fromChoreoTrajectory("DSF");
-PathPlannerPath DSLTest = PathPlannerPath.fromChoreoTrajectory("DSL");
+
 
   // The robot's subsystems and commands are defined here...
   private final SwerveSubsystem drivebase;
   public final SendableChooser<Command> AUTO_CHOOSER;
   // Replace with CommandPS4Controller or CommandJoystick if needed
-  final CommandXboxController driverXbox = new CommandXboxController(0);
+  final CommandXboxController driverXbox = new CommandXboxController(2);
 
+  
 
   /**
    * The container for the robot. Contains subsystems, OI devices, and commands.
    */
   public RobotContainer(Robot robot)
   {
-    
-    this.robot = robot;
-    NamedCommands.registerCommand("Shoot", Shoot());
-    NamedCommands.registerCommand("Zero Gyro", zeroGyro());
-    NamedCommands.registerCommand("Intake", intake());
-    NamedCommands.registerCommand("Indexer Up", IndexerUp());
-    NamedCommands.registerCommand("Indexer Down", IndexerDown());
-    NamedCommands.registerCommand("Shooter Stop", ShooterStop());
-    NamedCommands.registerCommand("Intake Stop", intakeStop());
-    NamedCommands.registerCommand("Indexer Stop", IndexerStop());
+    /*if(Robot.Beam.get() == false)
+    {
+      Robot.controller_driver.setRumble(RumbleType.kBothRumble, 3);
+    }*/
+   
     drivebase = new SwerveSubsystem(new File(Filesystem.getDeployDirectory(),
                                                                          "swerve/neo"));
+
+    this.robot = robot;
+    NamedCommands.registerCommand("ShootOnly", ShootOnly());
+    NamedCommands.registerCommand("TestAuto", TestAuto());
+    NamedCommands.registerCommand("ShootAndBackOut", ShootAndBackOut());
+    NamedCommands.registerCommand("Shoot", Shoot());
+    NamedCommands.registerCommand("ZeroGyro", zeroGyro());
+    NamedCommands.registerCommand("Intake", intake());
+    NamedCommands.registerCommand("IndexerUp", IndexerUp());
+    NamedCommands.registerCommand("IndexerDown", IndexerDown());
+    NamedCommands.registerCommand("ShooterStop", ShooterStop());
+    NamedCommands.registerCommand("IntakeStop", intakeStop());
+    NamedCommands.registerCommand("IndexerStop", IndexerStop());
+    NamedCommands.registerCommand("Rumble", rumbleCommand());
+    NamedCommands.registerCommand("RumbleStop", rumbleCommand());
+
+
     AUTO_CHOOSER = AutoBuilder.buildAutoChooser();
     // Configure the trigger bindings
     configureBindings();
@@ -142,6 +166,9 @@ PathPlannerPath DSLTest = PathPlannerPath.fromChoreoTrajectory("DSL");
     drivebase.setDefaultCommand(
         !RobotBase.isSimulation() ? driveFieldOrientedAnglularVelocity : driveFieldOrientedDirectAngleSim);
 
+        
+        
+
     
   }
   
@@ -164,6 +191,7 @@ PathPlannerPath DSLTest = PathPlannerPath.fromChoreoTrajectory("DSL");
         Commands.deferredProxy(() -> drivebase.driveToPose(
                                    new Pose2d(new Translation2d(4, 4), Rotation2d.fromDegrees(0)))
                               ));
+  
     // driverXbox.x().whileTrue(Commands.runOnce(drivebase::lock, drivebase).repeatedly());
   }
 
@@ -172,61 +200,62 @@ PathPlannerPath DSLTest = PathPlannerPath.fromChoreoTrajectory("DSL");
    *
    * @return the command to run in autonomous
    */
+      
+
   public Command getAutonomousCommand()
   {
-    // An example command will be run in autonomous
-    // Return an instance of PrintAutonomousStatus
     return AUTO_CHOOSER.getSelected();
   }
+  
 
   
   public Command Shoot() 
   {
     return new InstantCommand(() -> {
-      robot.TopShooter.set(Robot.shooter_reverse);
-      robot.BottomShooter.set(Robot.shooter_reverse);
-    }).andThen(new WaitCommand(0.2));
+      robot.TopShooter.set(-AutoShooterPower);
+      robot.BottomShooter.set(-AutoShooterPower);
+    });
   }
   
   public Command zeroGyro() 
   {
     return new InstantCommand(() -> {
       Commands.runOnce(drivebase::zeroGyro);
-    }).andThen(new WaitCommand(0.2));
+    });
   }
 
    public Command intake() 
   {
     return new InstantCommand(() -> {
       robot.Intake.set(-Robot.intake_power);
-    }).andThen(new WaitCommand(0.2));
+    });
   }
 
   public Command IndexerUp() 
   {
     return new InstantCommand(() -> {
       robot.Indexer.set(Robot.Indexer_power);
-    }).andThen(new WaitCommand(0.2));
+    });
   }
   public Command IndexerDown() 
   {
     return new InstantCommand(() -> {
       robot.Indexer.set(Robot.Indexer_reverse);
-    }).andThen(new WaitCommand(0.2));
+    });
   }
 
   public Command IndexerStop() 
   {
     return new InstantCommand(() -> {
       robot.Indexer.set(Robot.generic_stop);
-    }).andThen(new WaitCommand(0.2));
+    });
   }
 
   public Command intakeStop() 
   {
     return new InstantCommand(() -> {
       robot.Intake.set(Robot.generic_stop);
-    }).andThen(new WaitCommand(0.2));
+    });
   }
 
   public Command ShooterStop() 
@@ -234,7 +263,21 @@ PathPlannerPath DSLTest = PathPlannerPath.fromChoreoTrajectory("DSL");
     return new InstantCommand(() -> {
       robot.TopShooter.set(Robot.generic_stop);
       robot.BottomShooter.set(Robot.generic_stop);
-    }).andThen(new WaitCommand(0.2));
+    });
+  }
+
+  public Command rumbleCommand()
+  {
+    return new InstantCommand(() -> {
+      Robot.controller_driver.setRumble(RumbleType.kBothRumble, 2);
+    });
+  }
+
+  public Command rumbleStopCommand()
+  {
+    return new InstantCommand(() -> {
+      Robot.controller_driver.setRumble(RumbleType.kBothRumble, 0);
+    });
   }
 
   public void setDriveMode()
@@ -246,5 +289,94 @@ PathPlannerPath DSLTest = PathPlannerPath.fromChoreoTrajectory("DSL");
   {
     drivebase.setMotorBrake(brake);
   }
+  public Command TestAuto()
+  {
+    
+    PathPlannerPath Forward = PathPlannerPath.fromChoreoTrajectory("Forward");
+    Command forwardCommand = AutoBuilder.followPath(Forward);
   
+    return new SequentialCommandGroup(
+      zeroGyro().withTimeout(2),
+      new WaitCommand(2),
+      forwardCommand
+      
+    );
+  }
+
+  public Command ShootAndBackOut()
+  {
+    PathPlannerPath ForwardShoot = PathPlannerPath.fromChoreoTrajectory("Testing");
+    Command forwardShootCommand = AutoBuilder.followPath(ForwardShoot);
+  
+    return new SequentialCommandGroup(
+      zeroGyro().withTimeout(1),
+      new WaitCommand(1),
+      Shoot().withTimeout(1),
+      new WaitCommand(3),
+      IndexerUp().withTimeout(1),
+      new WaitCommand(2),
+      forwardShootCommand,
+      new WaitCommand(2),
+      ShooterStop().withTimeout(1),
+      IndexerStop().withTimeout(1),
+      intakeStop().withTimeout(1)
+      
+    );
+  }
+  public Command ShootOnly()
+  {
+  
+  
+    return new SequentialCommandGroup(
+      zeroGyro().withTimeout(1),
+      new WaitCommand(1),
+      Shoot().withTimeout(1),
+      new WaitCommand(3),
+      IndexerUp().withTimeout(1),
+      new WaitCommand(2),
+      ShooterStop().withTimeout(1),
+      IndexerStop().withTimeout(1),
+      intakeStop().withTimeout(1)
+      
+    );
+  }
+  
+  
+  /*public void solid(Color color) {
+    if (color != null) {
+        for (int i = 0; i < robot.StripLength; i++) {
+            robot.ledBuffer.setLED(i, color);
+        }
+       // robot.leds.setData(robot.ledBuffer);
+    }
+
 }
+public void solid(double percent, Color color) {
+  for (int i = 0; i < MathUtil.clamp(robot.StripLength * percent, 0, robot.StripLength); i++) {
+      robot.ledBuffer.setLED(i, color);
+  }
+
+}
+
+
+
+public Command solidCommand(Color color){
+  return new RunCommand(() -> solid(color)).alongWith(new PrintCommand("test")).ignoringDisable(true);
+}
+
+public Command solidCommand(double percent, Color color) {
+  //System.out.println("Color received: " + color); // Print the color value
+  return new RunCommand(() -> solid(percent, color)).alongWith(new PrintCommand("test"));
+}*/
+
+/*public Command Rumble()
+{
+  return new RunCommand(() -> Robot.controller_driver.setRumble(RumbleType.kBothRumble, 3));
+}*/
+
+ 
+
+    
+    
+}
+

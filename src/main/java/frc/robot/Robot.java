@@ -23,10 +23,15 @@ import edu.wpi.first.cameraserver.CameraServer;
 import edu.wpi.first.cscore.UsbCamera;
 import edu.wpi.first.hal.AllianceStationID;
 import edu.wpi.first.units.Time;
+import edu.wpi.first.wpilibj.AddressableLED;
+import edu.wpi.first.wpilibj.AddressableLEDBuffer;
+import edu.wpi.first.wpilibj.DigitalInput;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
+import edu.wpi.first.wpilibj.GenericHID.RumbleType;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj.util.Color;
 
 import javax.sound.sampled.Port;
 
@@ -49,7 +54,7 @@ public class Robot extends TimedRobot
   
   
   final AllianceStationID TS = DriverStation.getRawAllianceStation();
-  final XboxController controller_driver = new XboxController(1);
+  public static XboxController controller_driver = new XboxController(3);
   
   
   
@@ -59,7 +64,8 @@ public class Robot extends TimedRobot
   CANSparkBase TopShooter = new CANSparkMax(17, MotorType.kBrushless);
   CANSparkBase BottomShooter = new CANSparkMax(18, MotorType.kBrushless);
   CANSparkBase Indexer = new CANSparkMax(21, MotorType.kBrushless);
-  SparkAbsoluteEncoder encoder = Indexer.getAbsoluteEncoder(SparkAbsoluteEncoder.Type.kDutyCycle);
+  static DigitalInput Beam;
+  public AddressableLED leds = new AddressableLED(9);
   static final double intake_power = 1;
   static final double intake_stop = 0;
   static final double shooter_power = 0.75;
@@ -68,10 +74,10 @@ public class Robot extends TimedRobot
   static final double arm_power = 0.5;
   static final double arm_reverse = -0.5;
   static final double arm_stop = 0;
-  static final double shooter_reverse = -0.75;
+  static final double shooter_reverse = -0.9;
   static final double generic_stop = 0;
-  static final double Indexer_power = 0.25;
-  static final double Indexer_reverse = -0.25;
+  static final double Indexer_power = 1;
+  static final double Indexer_reverse = -1;
   private static Robot instance;
   private Command m_autonomousCommand;
   private Command m_BlueDSLCommand;
@@ -82,9 +88,16 @@ public class Robot extends TimedRobot
   private Command m_RedDSRCommand;
   private RobotContainer m_robotContainer;
   private Timer disabledTimer;
+  private Timer rumbleTimer;
+  private boolean isRumbling;
+  final int StripLength = 16;
+  
+  public AddressableLEDBuffer ledBuffer = new AddressableLEDBuffer(StripLength);
+  
 
   public Robot()
   {
+     
     instance = this;
   }
 
@@ -102,12 +115,24 @@ public class Robot extends TimedRobot
     
     // Instantiate our RobotContainer.  This will perform all our button bindings, and put our
     // autonomous chooser on the dashboard.
-    
+    Beam = new DigitalInput(0);
     m_robotContainer = new RobotContainer(getInstance());
     m_robotContainer.initializeCamera();
     // Create a timer to disable motor brake a few seconds after disable.  This will let the robot stop
     // immediately when disabled, but then also let it be pushed more 
     disabledTimer = new Timer();
+    rumbleTimer = new Timer();
+    isRumbling = false;
+   
+    /*leds.setLength(StripLength);
+    leds.start();
+    ledBuffer.setLED(1, Color.kWhite);
+    leds.setData(ledBuffer);
+    // m_robotContainer.solid(100, Color.kBlue);
+    
+    System.out.println("LED Start is Called");
+    */
+    
   }
 
   /**
@@ -120,6 +145,8 @@ public class Robot extends TimedRobot
   @Override
   public void robotPeriodic()
   {
+    
+    
     
     // Runs the Scheduler.  This is responsible for polling buttons, adding newly-scheduled
     // commands, running already-scheduled commands, removing finished or interrupted commands,
@@ -179,6 +206,16 @@ public class Robot extends TimedRobot
     // teleop starts running. If you want the autonomous to
     // continue until interrupted by another command, remove
     // this line or comment it out.
+    
+    /* 
+    for (int i = 0; i < StripLength; i++) {
+      ledBuffer.setLED(i, Color.kRed);
+  }
+  ledBuffer.setLED(2,Color.kBlue);
+  leds.setData(ledBuffer);*/
+
+   
+
     if (m_autonomousCommand != null)
     {
       m_autonomousCommand.cancel();
@@ -193,45 +230,92 @@ public class Robot extends TimedRobot
   @Override
 public void teleopPeriodic() {
 
+/*if(Beam.get() == false)
+{
+
+controller_driver.setRumble(RumbleType.kBothRumble, 2);
+}
+
+else
+{
+controller_driver.setRumble(RumbleType.kBothRumble, 0);
+}*/
+ 
+//while(Beam.get() == false){
+//m_robotContainer.solidCommand(1, Color.kRed).schedule();
+ //for (int i = 0; i < StripLength; i++) {
+  //ledBuffer.setLED(i, Color.kRed);
+  
+//}
+
+  
+
+
+/*for (int i = 0; i < StripLength; i++) {
+  ledBuffer.setLED(i, Color.kBlue);
+}
+ leds.setData(ledBuffer);
+ System.out.println("have mercy");*/
+ 
+ 
   
 
 // Other teleop periodic code...
-
+/*-------------------------------------------------------- */ /* Intake */
 // intake controls for left bumper and right bumper
 if(controller_driver.getLeftTriggerAxis() > 0.7) 
   {
+    Indexer.set(Indexer_reverse);
     Intake.set(intake_power);
   }
-  else if(controller_driver.getLeftBumper() == true)
+  else if(controller_driver.getLeftBumper() == true && Beam.get() == true)
   {
+    Indexer.set(Indexer_power);
     Intake.set(-intake_power);
   }
   else
   {
-    Intake.set(intake_stop);
+    if(controller_driver.getYButton() == true)
+  {
+    Indexer.set(Indexer_power);
+      
+      
   }
+  else if(controller_driver.getAButton() == true)
+  {
+      Indexer.set(Indexer_reverse);
+    }
+    else
+    {
+       Indexer.set(generic_stop);
+    }
+    Intake.set(intake_stop);
+   
+  }
+  /*------------------------------------------------------*/ /* Arm's */
   // arm controls for the left and right stick
   if(controller_driver.getLeftY() > 0.4)
   {
-    LeftArm.set(arm_power);
+    LeftArm.set(arm_reverse);
   }
   else if(controller_driver.getLeftY() < -0.4)
   {
     
-    LeftArm.set(arm_reverse);
+    LeftArm.set(arm_power);
   }
   else {LeftArm.set(generic_stop);}
 
   if(controller_driver.getRightY() > 0.4)
   {
-    RightArm.set(arm_reverse);
+    RightArm.set(arm_power);
   }
   else if(controller_driver.getRightY() < -0.4)
   {
-    RightArm.set(arm_power);
+    RightArm.set(arm_reverse);
   }
   else{RightArm.set(generic_stop);}
-
+/*-------------------------------------------------------- */ /* Shooter */
+/*setting up shooter controls... */
   if(controller_driver.getRightTriggerAxis() > 0.7)
   {
     TopShooter.set(shooter_power);
@@ -247,21 +331,10 @@ if(controller_driver.getLeftTriggerAxis() > 0.7)
     TopShooter.set(generic_stop);
     BottomShooter.set(generic_stop);
   }
-  if(controller_driver.getYButton() == true)
-  {
-    Indexer.set(Indexer_power);
-      
-      
-  }
-  else if(controller_driver.getAButton() == true)
-  {
-      Indexer.set(Indexer_reverse);
-    }
-    else
-    {
-      Indexer.set(generic_stop);
-    }
-
+  /*-------------------------------------------------------- */ /* Indexer */
+  /*setting up indexer controls */
+  
+/*---------------------------------------------------------- */ /* end of operator controls code, you can find controls for the drive base in RobotContainer.java */
   }
   
   
@@ -297,6 +370,11 @@ if(controller_driver.getLeftTriggerAxis() > 0.7)
   @Override
   public void simulationInit()
   {
+      // Instantiate our RobotContainer.  This will perform all our button bindings, and put our
+    // autonomous chooser on the dashboard.
+    
+   
+    
   }
 
   /**
@@ -305,5 +383,6 @@ if(controller_driver.getLeftTriggerAxis() > 0.7)
   @Override
   public void simulationPeriodic()
   {
+    
   }
 }
